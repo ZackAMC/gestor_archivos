@@ -1,9 +1,17 @@
 // CONTENEDOR: maneja estado y habla con `window.api`. No sabe de tablas ni de estilos.
 
 import { useEffect, useState } from 'react'
-import type { DeletionPlanDTO, FileDTO, FolderDTO, ScanSummaryDTO, SelectionItemDTO } from '../../shared/contract.js'
+import type {
+  DeleteResultDTO,
+  DeletionPlanDTO,
+  FileDTO,
+  FolderDTO,
+  ScanSummaryDTO,
+  SelectionItemDTO,
+} from '../../shared/contract.js'
 import { formatBytes, percent } from '../../shared/format.js'
 import { DeletionPanel } from './components/DeletionPanel.js'
+import { DeletionResult } from './components/DeletionResult.js'
 import { FileTable } from './components/FileTable.js'
 import { FolderTable } from './components/FolderTable.js'
 
@@ -20,6 +28,8 @@ export function App() {
   // Map por ruta: tildar y destildar es O(1) y no hay duplicados.
   const [selection, setSelection] = useState<Map<string, SelectionItemDTO>>(new Map())
   const [plan, setPlan] = useState<DeletionPlanDTO | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [report, setReport] = useState<DeleteResultDTO['report'] | null>(null)
 
   // onProgress devuelve la función de desuscripción: justo lo que useEffect espera como cleanup.
   useEffect(() => window.api.onProgress(setProgress), [])
@@ -63,6 +73,44 @@ export function App() {
     })
   }
 
+  async function deleteSelected() {
+    setDeleting(true)
+    setError(null)
+    try {
+      // Solo mandamos rutas. Main confirma con un diálogo nativo y decide qué se borra.
+      const result = await window.api.deleteSelection([...selection.keys()])
+      if (!result) return // el usuario canceló
+
+      setSummary(result.summary)
+      setReport(result.report)
+
+      // Sacamos de la selección lo borrado y lo que iba incluido. Lo fallido o bloqueado queda a la vista.
+      const done = result.report.outcomes.filter((o) => o.status === 'trashed' || o.status === 'covered')
+      setSelection((prev) => {
+        const next = new Map(prev)
+        for (const o of done) next.delete(o.path)
+        return next
+      })
+
+      await refreshTrail()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  // Después de borrar, los tamaños de las migas están viejos y quizás borraste la carpeta
+  // en la que estabas parado: volvemos a la última que todavía existe.
+  async function refreshTrail() {
+    const fresh = await window.api.folders(trail.map((f) => f.path))
+    const cut = fresh.findIndex((f) => f === null)
+    const valid = (cut === -1 ? fresh : fresh.slice(0, cut)) as FolderDTO[]
+    setTrail(valid)
+    const last = valid[valid.length - 1]
+    if (last) setChildren(await window.api.children(last.path))
+  }
+
   async function pickFolder() {
     const path = await window.api.pickFolder()
     if (path) setRootPath(path)
@@ -78,6 +126,7 @@ export function App() {
       setTrail([result.root])
       setChildren(result.children)
       setSelection(new Map()) // la selección vieja pertenece a otro escaneo
+      setReport(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -133,7 +182,14 @@ export function App() {
           </div>
 
           <h2>Selección para borrar</h2>
-          <DeletionPanel plan={plan} onRemove={removeFromSelection} onClear={() => setSelection(new Map())} />
+          {report && <DeletionResult report={report} onDismiss={() => setReport(null)} />}
+          <DeletionPanel
+            plan={plan}
+            deleting={deleting}
+            onRemove={removeFromSelection}
+            onClear={() => setSelection(new Map())}
+            onDelete={deleteSelected}
+          />
 
           <h2>Carpetas</h2>
           <div className="crumbs">

@@ -24,12 +24,18 @@ export interface DeletionPlan {
 export function planDeletion(candidates: DeletionCandidate[]): DeletionPlan {
   const normalized = candidates.map((c) => normalizeWinPath(c.path))
 
+  const risks = candidates.map((c) => assessDeletionRisk(c.path))
+
   const items: PlannedItem[] = candidates.map((c, i) => {
     const self = normalized[i]!
-    const parentIndex = normalized.findIndex((other, j) => j !== i && isInside(self, other))
+    // Solo "cubre" un padre que SÍ se va a borrar. Si elegís C:\Windows (bloqueado)
+    // y C:\Windows\Temp, Temp se tiene que borrar por su cuenta.
+    const parentIndex = normalized.findIndex(
+      (other, j) => j !== i && risks[j]!.level !== 'blocked' && isInside(self, other),
+    )
     return {
       ...c,
-      risk: assessDeletionRisk(c.path),
+      risk: risks[i]!,
       coveredBy: parentIndex === -1 ? null : candidates[parentIndex]!.path,
     }
   })
@@ -45,7 +51,8 @@ export function planDeletion(candidates: DeletionCandidate[]): DeletionPlan {
 }
 
 // ¿`child` está DENTRO de `parent`? Se compara con separador, así "c:\a" no contiene a "c:\ab".
-function isInside(child: string, parent: string): boolean {
+// Espera rutas ya normalizadas (ver normalizeWinPath).
+export function isInside(child: string, parent: string): boolean {
   const prefix = parent.endsWith('\\') ? parent : `${parent}\\`
   return child.startsWith(prefix)
 }

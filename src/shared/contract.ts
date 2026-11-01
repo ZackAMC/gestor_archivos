@@ -7,6 +7,8 @@ export const IPC = {
   children: 'scan:children',
   progress: 'scan:progress',
   planDeletion: 'deletion:plan',
+  deleteSelection: 'deletion:execute',
+  folders: 'scan:folders',
 } as const
 
 export interface FolderDTO {
@@ -61,6 +63,18 @@ export interface DeletionPlanDTO {
   blockedCount: number
 }
 
+export interface DeletionOutcomeDTO {
+  path: string
+  sizeBytes: number
+  status: 'trashed' | 'blocked' | 'covered' | 'failed'
+  reason: string | null
+}
+
+export interface DeleteResultDTO {
+  report: { outcomes: DeletionOutcomeDTO[]; trashedBytes: number; failedCount: number }
+  summary: ScanSummaryDTO // los totales ya descontados
+}
+
 // La API que el preload expone como `window.api`. Es TODO lo que la UI puede hacer.
 export interface DiskAnalyzerApi {
   pickFolder(): Promise<string | null>
@@ -68,4 +82,8 @@ export interface DiskAnalyzerApi {
   children(folderPath: string): Promise<FolderDTO[]>
   onProgress(listener: (fileCount: number) => void): () => void // devuelve "desuscribir"
   planDeletion(items: SelectionItemDTO[]): Promise<DeletionPlanDTO>
+  // Solo manda RUTAS: los tamaños los saca Main de su propio escaneo.
+  // Devuelve null si el usuario canceló en el diálogo de confirmación.
+  deleteSelection(paths: string[]): Promise<DeleteResultDTO | null>
+  folders(paths: string[]): Promise<(FolderDTO | null)[]> // null = ya no existe en el árbol
 }

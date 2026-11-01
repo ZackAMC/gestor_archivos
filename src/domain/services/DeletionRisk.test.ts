@@ -63,11 +63,12 @@ test('planDeletion no cuenta doble los ítems dentro de otra carpeta elegida', (
 test('planDeletion separa lo bloqueado de lo borrable', () => {
   const plan = planDeletion([
     { path: 'C:\\Windows', sizeBytes: 30 },
-    { path: 'C:\\Windows\\Temp', sizeBytes: 2 }, // cubierto por C:\Windows
+    { path: 'C:\\Windows\\Temp', sizeBytes: 2 }, // NO cubierto: el padre está bloqueado
     { path: 'F:\\proyectos\\app\\node_modules', sizeBytes: 10 },
   ])
-  assert.equal(plan.totalBytes, 40)
-  assert.equal(plan.deletableBytes, 10)
+  assert.equal(plan.items[1]!.coveredBy, null)
+  assert.equal(plan.totalBytes, 42)
+  assert.equal(plan.deletableBytes, 12)
   assert.equal(plan.blockedCount, 1)
   assert.equal(plan.worstLevel, 'blocked')
 })

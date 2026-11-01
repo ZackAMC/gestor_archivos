@@ -13,11 +13,13 @@ const LABELS: Record<RiskLevelDTO, string> = {
 
 interface Props {
   plan: DeletionPlanDTO | null
+  deleting: boolean
   onRemove: (path: string) => void
   onClear: () => void
+  onDelete: () => void
 }
 
-export function DeletionPanel({ plan, onRemove, onClear }: Props) {
+export function DeletionPanel({ plan, deleting, onRemove, onClear, onDelete }: Props) {
   if (!plan || plan.items.length === 0) {
     return <p className="muted">Marcá carpetas o archivos con la casilla para ver qué pasaría si los borrás.</p>
   }
@@ -30,7 +32,12 @@ export function DeletionPanel({ plan, onRemove, onClear }: Props) {
           <span className="muted"> · {plan.items.length} seleccionados</span>
           {plan.worstLevel && <span className={`badge ${plan.worstLevel}`}>Peor caso: {LABELS[plan.worstLevel]}</span>}
         </div>
-        <button onClick={onClear}>Limpiar selección</button>
+        <div className="actions">
+          <button onClick={onClear} disabled={deleting}>Limpiar selección</button>
+          <button className="danger" onClick={onDelete} disabled={deleting || plan.deletableBytes === 0}>
+            {deleting ? 'Borrando…' : 'Mandar a la Papelera'}
+          </button>
+        </div>
       </div>
 
       {plan.blockedCount > 0 && (
@@ -58,7 +65,7 @@ export function DeletionPanel({ plan, onRemove, onClear }: Props) {
       </ul>
 
       <p className="muted small">
-        Todavía no se borra nada. En el próximo paso, el borrado va a mandar todo a la Papelera de reciclaje.
+        Todo va a la Papelera de reciclaje y antes te pido confirmación. Lo bloqueado se saltea siempre.
       </p>
     </div>
   )
