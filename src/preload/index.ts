@@ -14,6 +14,7 @@ const api: DiskAnalyzerApi = {
     ipcRenderer.on(IPC.progress, handler)
     return () => ipcRenderer.removeListener(IPC.progress, handler)
   },
+  planDeletion: (items) => ipcRenderer.invoke(IPC.planDeletion, items),
 }
 
 contextBridge.exposeInMainWorld('api', api)

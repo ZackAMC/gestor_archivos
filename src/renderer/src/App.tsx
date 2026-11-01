@@ -1,8 +1,9 @@
 // CONTENEDOR: maneja estado y habla con `window.api`. No sabe de tablas ni de estilos.
 
 import { useEffect, useState } from 'react'
-import type { FolderDTO, ScanSummaryDTO } from '../../shared/contract.js'
+import type { DeletionPlanDTO, FileDTO, FolderDTO, ScanSummaryDTO, SelectionItemDTO } from '../../shared/contract.js'
 import { formatBytes, percent } from '../../shared/format.js'
+import { DeletionPanel } from './components/DeletionPanel.js'
 import { FileTable } from './components/FileTable.js'
 import { FolderTable } from './components/FolderTable.js'
 
@@ -16,8 +17,51 @@ export function App() {
   const [trail, setTrail] = useState<FolderDTO[]>([]) // migas de pan: raíz -> carpeta actual
   const [children, setChildren] = useState<FolderDTO[]>([])
 
+  // Map por ruta: tildar y destildar es O(1) y no hay duplicados.
+  const [selection, setSelection] = useState<Map<string, SelectionItemDTO>>(new Map())
+  const [plan, setPlan] = useState<DeletionPlanDTO | null>(null)
+
   // onProgress devuelve la función de desuscripción: justo lo que useEffect espera como cleanup.
   useEffect(() => window.api.onProgress(setProgress), [])
+
+  // Cada vez que cambia la selección, le pedimos a Main que evalúe el impacto.
+  // `cancelled` evita que una respuesta vieja pise una más nueva si tildás rápido.
+  useEffect(() => {
+    if (selection.size === 0) {
+      setPlan(null)
+      return
+    }
+    let cancelled = false
+    window.api
+      .planDeletion([...selection.values()])
+      .then((p) => !cancelled && setPlan(p))
+      .catch((err: unknown) => !cancelled && setError(err instanceof Error ? err.message : String(err)))
+    return () => {
+      cancelled = true
+    }
+  }, [selection])
+
+  const isSelected = (path: string) => selection.has(path)
+
+  function toggle(item: SelectionItemDTO) {
+    setSelection((prev) => {
+      const next = new Map(prev) // estado inmutable: React detecta el cambio por referencia
+      if (next.has(item.path)) next.delete(item.path)
+      else next.set(item.path, item)
+      return next
+    })
+  }
+
+  const toggleFolder = (f: FolderDTO) => toggle({ path: f.path, name: f.name, sizeBytes: f.sizeBytes, kind: 'folder' })
+  const toggleFile = (f: FileDTO) => toggle({ path: f.path, name: f.name, sizeBytes: f.sizeBytes, kind: 'file' })
+
+  function removeFromSelection(path: string) {
+    setSelection((prev) => {
+      const next = new Map(prev)
+      next.delete(path)
+      return next
+    })
+  }
 
   async function pickFolder() {
     const path = await window.api.pickFolder()
@@ -33,6 +77,7 @@ export function App() {
       setSummary(result)
       setTrail([result.root])
       setChildren(result.children)
+      setSelection(new Map()) // la selección vieja pertenece a otro escaneo
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -87,6 +132,9 @@ export function App() {
             <Stat label="Tiempo" value={`${summary.seconds.toFixed(1)} s`} />
           </div>
 
+          <h2>Selección para borrar</h2>
+          <DeletionPanel plan={plan} onRemove={removeFromSelection} onClear={() => setSelection(new Map())} />
+
           <h2>Carpetas</h2>
           <div className="crumbs">
             {trail.map((f, i) => (
@@ -96,13 +144,19 @@ export function App() {
               </span>
             ))}
           </div>
-          <FolderTable parent={current} folders={children} onOpen={openFolder} />
+          <FolderTable
+            parent={current}
+            folders={children}
+            onOpen={openFolder}
+            isSelected={isSelected}
+            onToggle={toggleFolder}
+          />
 
           <h2>Archivos más pesados</h2>
-          <FileTable files={summary.biggestFiles} />
+          <FileTable files={summary.biggestFiles} isSelected={isSelected} onToggle={toggleFile} />
 
           <h2>Archivos fríos más pesados (+{summary.coldDays} días sin uso)</h2>
-          <FileTable files={summary.biggestColdFiles} />
+          <FileTable files={summary.biggestColdFiles} isSelected={isSelected} onToggle={toggleFile} />
         </>
       )}
     </>

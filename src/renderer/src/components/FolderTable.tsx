@@ -7,15 +7,18 @@ interface Props {
   parent: FolderDTO
   folders: FolderDTO[]
   onOpen: (folder: FolderDTO) => void
+  isSelected: (path: string) => boolean
+  onToggle: (folder: FolderDTO) => void
 }
 
-export function FolderTable({ parent, folders, onOpen }: Props) {
+export function FolderTable({ parent, folders, onOpen, isSelected, onToggle }: Props) {
   if (folders.length === 0) return <p className="muted">Esta carpeta no tiene subcarpetas.</p>
 
   return (
     <table>
       <thead>
         <tr>
+          <th className="check" />
           <th>Nombre</th>
           <th className="num">Tamaño</th>
           <th>% de {parent.name}</th>
@@ -31,6 +34,10 @@ export function FolderTable({ parent, folders, onOpen }: Props) {
             onClick={f.hasChildren ? () => onOpen(f) : undefined}
             title={f.path}
           >
+            {/* stopPropagation: tildar la casilla NO tiene que abrir la carpeta */}
+            <td className="check" onClick={(e) => e.stopPropagation()}>
+              <input type="checkbox" checked={isSelected(f.path)} onChange={() => onToggle(f)} />
+            </td>
             <td className="name">📁 {f.name}{f.hasChildren ? ' ›' : ''}</td>
             <td className="num">{formatBytes(f.sizeBytes)}</td>
             <td>

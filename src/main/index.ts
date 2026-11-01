@@ -9,7 +9,8 @@ import { scanDisk, type ScanResult } from '../application/ScanDisk.js'
 import type { FileEntry } from '../domain/FileEntry.js'
 import { findFolder, sortedChildren, type FolderNode } from '../domain/FolderNode.js'
 import { daysSinceUsed } from '../domain/services/ColdPolicy.js'
-import { IPC, type FileDTO, type FolderDTO, type ScanSummaryDTO } from '../shared/contract.js'
+import { planDeletion, type DeletionCandidate } from '../domain/services/DeletionPlan.js'
+import { IPC, type DeletionPlanDTO, type FileDTO, type FolderDTO, type ScanSummaryDTO } from '../shared/contract.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const scanner = new NodeFsScanner()
@@ -71,6 +72,24 @@ ipcMain.handle(IPC.children, (_event, folderPath: unknown): FolderDTO[] => {
   const node = findFolder(lastScan.root, folderPath)
   return node ? sortedChildren(node).map(toFolderDTO) : []
 })
+
+// El riesgo se evalúa en MAIN, no en la UI: cuando exista el borrado, Main va a usar
+// esta misma regla para negarse a borrar lo bloqueado, haga lo que haga la UI.
+ipcMain.handle(IPC.planDeletion, (_event, items: unknown): DeletionPlanDTO => {
+  if (!Array.isArray(items) || items.length > 10_000) throw new Error('Selección inválida')
+  const candidates: DeletionCandidate[] = items.map((it: unknown) => {
+    if (!it || typeof it !== 'object') throw new Error('Ítem inválido')
+    const { path, sizeBytes } = it as Record<string, unknown>
+    if (typeof path !== 'string' || typeof sizeBytes !== 'number' || !Number.isFinite(sizeBytes) || sizeBytes < 0) {
+      throw new Error('Ítem inválido')
+    }
+    return { path, sizeBytes }
+  })
+  // El plan del dominio ya es un objeto plano con la misma forma que el DTO:
+  // el tipado estructural de TS lo acepta sin mapear.
+  return planDeletion(candidates)
+})
+
 // --- Traducción dominio -> DTO (lo que cruza el puente) ---
 
 function toSummary(scan: ScanResult): ScanSummaryDTO {
