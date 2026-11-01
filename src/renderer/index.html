@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Disk Analyzer</title>
+    <!-- CSP: la UI solo puede cargar scripts propios. Otra capa más de defensa. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+    />
+    <style>
+      :root {
+        --bg: #14161a;
+        --panel: #1c1f25;
+        --border: #2c3038;
+        --text: #e6e8eb;
+        --muted: #8b929c;
+        --accent: #4f8cff;
+        --cold: #5cc8d6;
+        --danger: #ff6b6b;
+        color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.45 'Segoe UI', system-ui, sans-serif;
+      }
+      #root { padding: 20px 24px; max-width: 1280px; margin: 0 auto; }
+      h1 { font-size: 20px; margin: 0 0 16px; }
+      h2 { font-size: 15px; margin: 28px 0 10px; color: var(--muted); font-weight: 600; }
+      .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+      .path { flex: 1; min-width: 240px; padding: 8px 10px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); }
+      .path.set { color: var(--text); }
+      button { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px; cursor: pointer; font: inherit; }
+      button:hover:not(:disabled) { border-color: var(--accent); }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      button:disabled { opacity: 0.5; cursor: default; }
+      input[type='number'] { width: 70px; padding: 7px 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; }
+      .status { margin-top: 12px; color: var(--muted); }
+      .error { color: var(--danger); }
+      .stats { display: flex; gap: 28px; margin-top: 18px; flex-wrap: wrap; }
+      .stat b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+      .stat span { color: var(--muted); font-size: 12px; }
+      .crumbs { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+      .crumbs button { padding: 3px 8px; font-size: 13px; }
+      .crumbs .sep { color: var(--muted); }
+      table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+      th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+      th { font-size: 12px; color: var(--muted); font-weight: 600; }
+      td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+      tr.clickable { cursor: pointer; }
+      tr.clickable:hover { background: #232730; }
+      td.name { word-break: break-all; }
+      .bar { position: relative; height: 8px; width: 140px; background: #262a32; border-radius: 4px; overflow: hidden; }
+      .bar i { position: absolute; inset: 0 auto 0 0; background: var(--accent); }
+      .bar i.cold { background: var(--cold); }
+      .muted { color: var(--muted); }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./src/main.tsx"></script>
+  </body>
+</html>
